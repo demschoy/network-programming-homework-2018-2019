@@ -4,7 +4,6 @@ import java.net.*;
 
 import java.io.*;
 
-
 public class HttpServer 
 {
 	private ServerSocket server;
@@ -112,7 +111,7 @@ public class HttpServer
 	{
 		if(ps != null)
 		{
-			ps.println("HTTP/1.0 200 OK");
+			/*ps.println("HTTP/1.0 200 OK");
 			ps.println();
 			ps.println("<!DOCTYPE html>\n" + 
 					"<html>\n" + 
@@ -127,7 +126,7 @@ public class HttpServer
 					"<h2>" + (response == null || response.trim().isEmpty() ? "" : response) + "</h2>" +
 					"</body>\n" + 
 					"</html>");
-		}
+*/		}
 	}
 	
 	
@@ -174,6 +173,7 @@ public class HttpServer
 	{
 		ps.println("HTTP/1.1 200 OK");
 		ps.println();
+		
 		String[] lines = request.split("\n");
 		String header = lines[0];
 		String[] headerParts = header.split(" ");
@@ -228,14 +228,20 @@ public class HttpServer
 		}
 	}
 	
-
 	private void sendText(PrintStream ps, FileInputStream fileIn) throws IOException 
 	{
-		sendVideo(ps,fileIn);
+		int bytesRead = 0;
+		byte[] buffer = new byte[8192];
+		while((bytesRead = fileIn.read(buffer, 0, 8192)) > 0)
+			ps.write(buffer, 0, bytesRead);
+		
+		ps.flush();
+		fileIn.close();
 	}
 
 	private void sendVideo(PrintStream ps, FileInputStream fileIn) throws IOException 
 	{
+		BufferedReader reader=null;
 		int bytesRead = 0;
 		byte[] buffer = new byte[8192];
 	
