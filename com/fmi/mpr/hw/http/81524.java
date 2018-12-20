@@ -1,4 +1,5 @@
-package com.fmi.mpr.hw.http;
+//package com.fmi.mpr.hw.http;
+package last;
 
 import java.net.*;
 
@@ -50,7 +51,7 @@ public class HttpServer
 			   "</html>";
 	public HttpServer() throws IOException
 	{
-		this.server = new ServerSocket(8888);
+		this.server = new ServerSocket(8800);
 	}
 	
 	public void start()
@@ -110,23 +111,7 @@ public class HttpServer
 	private void writePOST(PrintStream ps, String response) throws IOException //POST
 	{
 		if(ps != null)
-		{
-			/*ps.println("HTTP/1.0 200 OK");
-			ps.println();
-			ps.println("<!DOCTYPE html>\n" + 
-					"<html>\n" + 
-					"<head>\n" + 
-					"	<title>???</title>\n" + 
-					"</head>\n" + 
-					"<body>\n" + 
-					"<h1>Hello</h1>" + 
-					"<form method=\"POST\" action=\"/\">" +
-
-					"</form>" +
-					"<h2>" + (response == null || response.trim().isEmpty() ? "" : response) + "</h2>" +
-					"</body>\n" + 
-					"</html>");
-*/		}
+		{}
 	}
 	
 	
@@ -172,7 +157,6 @@ public class HttpServer
 	private void parseGetRequest(PrintStream ps, String request) throws Exception 
 	{
 		ps.println("HTTP/1.1 200 OK");
-		ps.println();
 		
 		String[] lines = request.split("\n");
 		String header = lines[0];
@@ -184,9 +168,8 @@ public class HttpServer
 		{
 			if(extension.equals("png") || extension.equals("jpg") || extension.equals("jpeg") || extension.equals("bmp"))
 			{
-				File f = new File("C:\\Users\\vivacom\\Documents\\Eclipse\\homework\\src\\homework\\"+filename);
-				FileInputStream fileIn = new FileInputStream(f);
-				sendImage(ps, fileIn);
+				ps.println();
+				sendImage(ps);
 				System.out.println("Sent image.");
 			}
 		}
@@ -200,10 +183,11 @@ public class HttpServer
 
 			if(extension.equals("mp4") || extension.equals("avi"))
 			{
-				File f = new File("C:\\Users\\vivacom\\Documents\\Eclipse\\homework\\src\\homework\\"+filename);
-				FileInputStream fileIn = new FileInputStream(f);
-				sendVideo(ps, fileIn);
+				ps.println("Content-Type: video/mp4");
+				ps.println();
+				sendVideo(ps);
 				System.out.println("Sent video.");
+				
 			}
 		}
 		catch(Exception e) 
@@ -216,9 +200,8 @@ public class HttpServer
 		{	
 			if(extension.equals("txt"))
 			{
-				File f = new File("C:\\Users\\vivacom\\Documents\\Eclipse\\homework\\src\\homework\\"+filename);
-				FileInputStream fileIn = new FileInputStream(f);
-				sendText(ps,fileIn);
+				ps.println();
+				sendText(ps);
 				System.out.println("Sent text.");
 			}
 		}
@@ -228,8 +211,10 @@ public class HttpServer
 		}
 	}
 	
-	private void sendText(PrintStream ps, FileInputStream fileIn) throws IOException 
+	private void sendText(PrintStream ps) throws IOException 
 	{
+		File f = new File(filename);
+		FileInputStream fileIn = new FileInputStream(f.getAbsolutePath());
 		int bytesRead = 0;
 		byte[] buffer = new byte[8192];
 		while((bytesRead = fileIn.read(buffer, 0, 8192)) > 0)
@@ -239,9 +224,11 @@ public class HttpServer
 		fileIn.close();
 	}
 
-	private void sendVideo(PrintStream ps, FileInputStream fileIn) throws IOException 
+	private void sendVideo(PrintStream ps) throws IOException 
 	{
-		BufferedReader reader=null;
+		File f = new File(filename);
+		FileInputStream fileIn = new FileInputStream(f.getAbsolutePath());
+		
 		int bytesRead = 0;
 		byte[] buffer = new byte[8192];
 	
@@ -252,8 +239,11 @@ public class HttpServer
 		fileIn.close();
 	}
 
-	private void sendImage(PrintStream ps, FileInputStream fileIn) throws IOException 
+	private void sendImage(PrintStream ps) throws IOException 
 	{
+		File f = new File(filename);
+		FileInputStream fileIn = new FileInputStream(f.getAbsolutePath());
+		
 		int bytesRead = 0;
 		byte[] buffer = new byte[4096];
 	
@@ -263,77 +253,19 @@ public class HttpServer
 		ps.flush();
 		fileIn.close();
 	}
-
 	private String parsePostRequest(PrintStream ps, String request) throws IOException 
 	{		
-		ps.println(request);
-		String[] lines = request.split("\n");
-		String header = lines[0];
-		String[] headerParts = header.split(" ");
-		
-		String uri = header.split(" ")[1];
-		
-		if(uri.length() != 1)
-			uri = uri.substring(1);
-		
-		if(uri.equals("video"))
-		{
-			ps.println("HTTP/1.0 200 OK");
-			ps.println("Content-type: video/mp4");
-			ps.println();
-			
-			File f = new File("video.mp4");
-			FileInputStream fileIn = new FileInputStream(f);
-					
-			try
-			{
-				sendVideo(ps,fileIn);
-			}
-			catch(IOException e)
-			{
-				
-			}
-		}
-		else if(uri.equals("image"))
-		{
-			File f = new File("");
-			FileInputStream fileIn = new FileInputStream(f);
-			try
-			{
-				sendImage(ps, fileIn);
-			}
-			catch(IOException e)
-			{
-				
-			}
-		}
-		else 
-		{
-			StringBuilder body = new StringBuilder();
-			boolean readBody = false;
-			for(String line : lines)
-			{
-				if(readBody)
-					body.append(line);
-				if(line.trim().isEmpty())
-					readBody = true;
-			}
-			
-			return parseTextBody(body.toString());
-		}
-			
 		return null;
 	}
 
 	private String parseTextBody(String body) 
 	{
-		
 		return null;
-		
 	}
 	
 	public static void main(String[] args) throws IOException
 	{
-		new HttpServer().start();
+		HttpServer serv = new HttpServer();
+		serv.start();
 	}
 }
