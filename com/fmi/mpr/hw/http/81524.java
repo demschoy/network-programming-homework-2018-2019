@@ -22,7 +22,7 @@ public class HttpServer
 		
 	public HttpServer() throws IOException
 	{
-		this.server = new ServerSocket(8801);
+		this.server = new ServerSocket(8181);
 	}
 	
 	public void start()
@@ -123,22 +123,20 @@ public class HttpServer
 	
 	private String parseRequest(PrintStream ps, Socket client, String request) throws Exception
 	{
+//		System.out.println(request);
+		
 		String[] lines = request.split("\n");
 		String header = lines[0];
 		
 		String[] headerParts = header.split(" ");
 		this.type = headerParts[0];
 		
-		String fullFileName = headerParts[1];
-		
 		if(type.equals("GET"))
 			return parseGetRequest(ps, request);
 		if(type.equals("POST"))
-			return parsePostRequest(ps, lines, fullFileName, client);
-		
-		return parsePostRequest(ps, lines, fullFileName, client);
-		
-		//return null;
+			return parsePostRequest(ps, lines, client);
+
+		return null;
 	}
 
 	private String parseGetRequest(PrintStream ps, String request) throws Exception 
@@ -226,65 +224,70 @@ public class HttpServer
 		fileIn.close();
 	}
 	
-	private String parsePostRequest(PrintStream ps, String[] lines, String filename, Socket client) throws IOException 
-	{		
-		StringBuilder body = new StringBuilder();
-		boolean readBody = false;
-		for (String line : lines) {
-			if (readBody) {
-				body.append(line);
-			}
-			if (line.trim().isEmpty()) {
-				readBody = true;
-			}
-		}
+	private String parsePostRequest(PrintStream ps, String[] lines, Socket client) throws IOException 
+	{
+		String header = lines[0];
+		String url = header.split(" ")[1];
 		
-		return parseBody(client, body.toString());
+		if(url.length() != 1)
+			url = url.substring(1);
+		
+		if(url.equals("upload.php"))
+		{
+			StringBuilder body = new StringBuilder();
+			
+			boolean readBody = false;
+			for (String line : lines) 
+			{
+				if (readBody) 
+					body.append(line);
+				if (line.trim().isEmpty()) 
+					readBody = true;
+			}
+			
+			return parseBody(client, body.toString());
+		}
+		return null;
 	}
 
 	private String parseBody(Socket client, String body) throws IOException 
 	{
 		if (body != null && !body.trim().isEmpty()) 
 		{
-			String[] operands = body.split("&");
-			String fileName = operands[0].split("=")[1];
+			String[] operands = body.split(";");
+			String fileName = operands[2].split("=")[1].split("\"")[1];
 			
-			return sendFile(fileName, body, client);
+			return sendFile(fileName, body, client);	
 		}
 		return null;
 	}
 	
 	private String sendFile(String fileName, String body, Socket client) throws IOException 
 	{
+		String type = fileName.split("\\.")[1];
 		BufferedInputStream bis = new BufferedInputStream(client.getInputStream());
-		String extension = fileName.split("\\.")[1];
 		String data = null;
 		PrintStream ps = new PrintStream(client.getOutputStream(), true);
 		
-		if(extension.equals("png") || extension.equals("jpg") || extension.equals("jpeg") || extension.equals("bmp")
-				|| extension.equals("mp4") || extension.equals("avi"))
+		if(type.equals("jpg") || type.equals("jpeg") || type.equals("bmp") || type.equals("mp4") || type.equals("avi"))
 		{
 			data = sendMedia(bis, ps);
 		}
-		
-		if(extension.equals("txt"))
+		if(type.equals("txt"))
 		{
 			data = sendTextFiles(bis, ps);
 		}
-        
-		File statText = new File(fileName);
-        FileOutputStream is = new FileOutputStream(statText);
-        OutputStreamWriter osw = new OutputStreamWriter(is);    
-        Writer w = new BufferedWriter(osw);
-        w.write(data);
-        w.close();
-        
+		
+		File file = new File(fileName);
+		FileOutputStream is = new FileOutputStream(file.getAbsolutePath());
+		is.write(data.getBytes());
+        is.close();
+        System.out.println("File sent!");
 		return null;
 	}
 
 	private String sendTextFiles(BufferedInputStream bis, PrintStream ps) throws IOException 
 	{
-		ps.flush();
 		int bytesRead = 0;
 		byte[] buffer = new byte[8192];
 	
@@ -297,20 +300,20 @@ public class HttpServer
 
 	private String sendMedia(BufferedInputStream bis, PrintStream ps) throws IOException 
 	{
-		ps.flush();
 		int bytesRead = 0;
 		byte[] buffer = new byte[8192];
-	
-		while((bytesRead = bis.read(buffer, 0, 8192)) > 0)
+		
+		while ((bytesRead = bis.read(buffer, 0, 8192)) > 0) 
+		{
 			ps.write(buffer, 0, bytesRead);
-		
+		}
 		return ps.toString();
-		
 	}
 
 	public static void main(String[] args) throws IOException
 	{
 		HttpServer serv = new HttpServer();
 		serv.start();
+
 	}
 }
