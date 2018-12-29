@@ -272,8 +272,9 @@ public class HttpServer
 		File file = new File(filename);
 		FileOutputStream fos = new FileOutputStream(file.getAbsolutePath());
 		
+		String typee = type.split("/")[0];
 		
-		if(type.split("/")[0].equals("image") ||type.split("/")[0].equals("video"))
+		if(typee.equals("image") || typee.equals("video") || typee.equals("text"))
 		{
 			fos.write(body.getBytes());
 			
@@ -300,9 +301,7 @@ public class HttpServer
 			inFile.delete();
 			temp.renameTo(inFile);
 		}
-		if(type.split("/")[0].equals("text"))
-			sendTextFiles(fos, new BufferedInputStream(client.getInputStream()));
-	
+		
 		ps.println("<!DOCTYPE html>\n" + 
 		   "<html>\n" + 
 		   "<head>\n" + 
@@ -318,6 +317,7 @@ public class HttpServer
 		return null;
 	}
 
+/*
 	private void sendTextFiles(FileOutputStream fos, BufferedInputStream bis) throws IOException 
 	{	
 		int bytesRead = 0;
@@ -329,7 +329,7 @@ public class HttpServer
 		fos.close();
 	}
 
-	/*
+	
 	private String sendMedia(String body) throws IOException 
 	{
 		int bytesRead = 0;
