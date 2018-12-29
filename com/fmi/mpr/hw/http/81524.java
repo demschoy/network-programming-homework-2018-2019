@@ -303,6 +303,16 @@ public class HttpServer
 		if(type.split("/")[0].equals("text"))
 			sendTextFiles(fos, new BufferedInputStream(client.getInputStream()));
 	
+		ps.println("<!DOCTYPE html>\n" + 
+		   "<html>\n" + 
+		   "<head>\n" + 
+		   "	<title></title>\n" + 
+		   "</head>\n" + 
+		   "<body>\n" +
+		   			"File sent!" +
+		   "</body>\n" + 
+		   "</html>");
+		
 		System.out.println("File sent!");
 		
 		return null;
