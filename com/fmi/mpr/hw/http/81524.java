@@ -7,6 +7,7 @@ import java.io.*;
 public class HttpServer 
 {
 	private ServerSocket server;
+	private Socket client;
 	private String type;
 	private String filename;
 	private boolean isRunning;
@@ -22,14 +23,15 @@ public class HttpServer
 		
 	public HttpServer() throws IOException
 	{
-		this.server = new ServerSocket(8181);
+		server = new ServerSocket(8181);
+		client = null;
 	}
 	
 	public void start()
 	{
 		if(!isRunning)
 		{
-			this.isRunning = true;
+			isRunning = true;
 			run();
 		}
 	}
@@ -51,7 +53,6 @@ public class HttpServer
 	
 	public void listen() throws Exception
 	{
-		Socket client = null;
 		try
 		{
 			client = server.accept();
@@ -74,7 +75,7 @@ public class HttpServer
 				BufferedInputStream bis = new BufferedInputStream(client.getInputStream());
 				PrintStream ps = new PrintStream(client.getOutputStream(),true))
 			{
-				String response = read(ps, client, bis);
+				String response = read(ps, bis);
 				writePOST(ps, response);
 			}
 	}
@@ -83,7 +84,6 @@ public class HttpServer
 	{
 		if (ps != null) 
 		{
-			//ps.println("HTTP/1.1 200 OK");
 			ps.println();
 			ps.println( "<!DOCTYPE html>\n" + 
 						"<form action=\"upload.php\" method=\"POST\" enctype=\"multipart/form-data\">\n" + 
@@ -98,7 +98,7 @@ public class HttpServer
 	}
 	
 	
-	private String read(PrintStream ps, Socket client, BufferedInputStream bis) throws Exception
+	private String read(PrintStream ps, BufferedInputStream bis) throws Exception
 	{
 		if(bis != null)
 		{
@@ -115,13 +115,13 @@ public class HttpServer
 						break;
 			}
 		
-			return parseRequest(ps, client, request.toString());
+			return parseRequest(ps, request.toString());
 		}
 		
 		return "Error";
 	}
 	
-	private String parseRequest(PrintStream ps, Socket client, String request) throws Exception
+	private String parseRequest(PrintStream ps, String request) throws Exception
 	{
 //		System.out.println(request);
 		
@@ -129,12 +129,12 @@ public class HttpServer
 		String header = lines[0];
 		
 		String[] headerParts = header.split(" ");
-		this.type = headerParts[0];
+		type = headerParts[0];
 		
 		if(type.equals("GET"))
 			return parseGetRequest(ps, request);
 		if(type.equals("POST"))
-			return parsePostRequest(ps, lines, client);
+			return parsePostRequest(lines);
 
 		return null;
 	}
@@ -224,7 +224,7 @@ public class HttpServer
 		fileIn.close();
 	}
 	
-	private String parsePostRequest(PrintStream ps, String[] lines, Socket client) throws IOException 
+	private String parsePostRequest(String[] lines) throws IOException 
 	{
 		String header = lines[0];
 		String url = header.split(" ")[1];
@@ -245,71 +245,93 @@ public class HttpServer
 					readBody = true;
 			}
 			
-			return parseBody(client, body.toString());
+			return parseBody(body.toString());
 		}
 		return null;
 	}
 
-	private String parseBody(Socket client, String body) throws IOException 
+	private String parseBody(String body) throws IOException 
 	{
 		if (body != null && !body.trim().isEmpty()) 
 		{
 			String[] operands = body.split(";");
-			String fileName = operands[2].split("=")[1].split("\"")[1];
+			filename = operands[2].split("=")[1].split("\"")[1];
 			
-			return sendFile(fileName, body, client);	
+			String type = body.split(":")[2].split(" ")[1].split("\r")[0];
+			
+			return sendFile(type, body);	
 		}
 		return null;
 	}
-	
-	private String sendFile(String fileName, String body, Socket client) throws IOException 
+	private String sendFile(String type, String body) throws IOException 
 	{
-		String type = fileName.split("\\.")[1];
-		BufferedInputStream bis = new BufferedInputStream(client.getInputStream());
-		String data = null;
 		PrintStream ps = new PrintStream(client.getOutputStream(), true);
+		ps.println("HTTP/1.1 200 OK");
+		ps.println();
 		
-		if(type.equals("jpg") || type.equals("jpeg") || type.equals("bmp") || type.equals("mp4") || type.equals("avi"))
-		{
-			data = sendMedia(bis, ps);
-		}
-		if(type.equals("txt"))
-		{
-			data = sendTextFiles(bis, ps);
-		}
+		File file = new File(filename);
+		FileOutputStream fos = new FileOutputStream(file.getAbsolutePath());
 		
-		File file = new File(fileName);
-		FileOutputStream is = new FileOutputStream(file.getAbsolutePath());
-		is.write(data.getBytes());
-        is.close();
-        System.out.println("File sent!");
+		
+		if(type.split("/")[0].equals("image") ||type.split("/")[0].equals("video"))
+		{
+			fos.write(body.getBytes());
+			
+			fos.close();
+			
+			File inFile = new File(filename);
+			File temp  = new File(inFile.getAbsolutePath()+".tmp");
+			BufferedReader br = new BufferedReader(new FileReader(filename));
+			PrintWriter pw = new PrintWriter(new FileWriter(temp));
+			String line = null;
+			
+			for(int i=0; i<4; i++)
+				br.readLine();
+			
+			while((line=br.readLine())!=null)
+			{
+				if(line.contains("------"))
+					break;
+				pw.println(line);
+				pw.flush();
+			}
+			pw.close();
+			br.close();
+			inFile.delete();
+			temp.renameTo(inFile);
+		}
+		if(type.split("/")[0].equals("text"))
+			sendTextFiles(fos, new BufferedInputStream(client.getInputStream()));
+	
+		System.out.println("File sent!");
+		
 		return null;
 	}
 
-	private String sendTextFiles(BufferedInputStream bis, PrintStream ps) throws IOException 
-	{
+	private void sendTextFiles(FileOutputStream fos, BufferedInputStream bis) throws IOException 
+	{	
 		int bytesRead = 0;
 		byte[] buffer = new byte[8192];
 	
 		while((bytesRead = bis.read(buffer, 0, 8192)) > 0)
-			ps.write(buffer, 0, bytesRead);
+			fos.write(buffer, 0, bytesRead);
 		
-		return ps.toString();
-		
+		fos.close();
 	}
 
-	private String sendMedia(BufferedInputStream bis, PrintStream ps) throws IOException 
+	/*
+	private String sendMedia(String body) throws IOException 
 	{
 		int bytesRead = 0;
-		byte[] buffer = new byte[8192];
-		
-		while ((bytesRead = bis.read(buffer, 0, 8192)) > 0) 
+		byte[] buffer = new byte[4096];
+		int i=0;
+		while ((bytesRead = bis.read(buffer, 0, 4096)) > 0) 
 		{
-			ps.write(buffer, 0, bytesRead);
+			bos.write(buffer, 0, bytesRead);
 		}
-		return ps.toString();
+		return bos.toString();
 	}
-
+*/
 	public static void main(String[] args) throws IOException
 	{
 		HttpServer serv = new HttpServer();
